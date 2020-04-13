@@ -1,0 +1,896 @@
+---
+title: "Analysis of Sanders Supporters Voting Trends"
+author: "Elic M. Weitzel"
+date: "4/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(RColorBrewer)
+```
+
+#The 2016 CCES Results
+
+The CCES is a thing... <https://dataverse.harvard.edu/dataverse/cces>.
+
+With data from the 2016 CCES (<https://dataverse.harvard.edu/file.xhtml?persistentId=doi:10.7910/DVN/GDF6Z0/JPMOZZ&version=4.0>), download and import the RData version of the dataset.
+
+```{r}
+load("~/Documents/Research Projects/Politics/CCES16_Common_OUTPUT_Feb2018_VV.RData")
+```
+
+The CCES Guide contains a detailed breakdown of the survey questions and provides the key to the codes used in the dataset loaded above. This document can be downloaded here: <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/GDF6Z0&version=4.0>
+
+
+##Match to voter profile
+
+To ensure that we're only analyzing confirmed and registered voters, select only those individuals for which the database managers found a voting record match.
+
+```{r}
+y <- x[x$CL_matched == "Y", ] #if voter was matched to voter file; see pg. 126 of CCES Guide for explanation
+```
+
+
+##Identify Sanders Supporters in the 2016 Primary
+
+First, we need to eliminate folks who didn't vote in the primary. We're only interested in what folks who voted for Sanders in the primary did in the general election.
+
+```{r}
+voters <- y[!is.na(y$CC16_328), ] #eliminate nonvoters in primary so that we're only analyzing folks who voted in the primary
+
+sanders.voters <- voters[voters$CC16_328 == "Bernie Sanders", ] #isolate Sanders voters
+
+table(sanders.voters$CC16_328) #confirm that all selected are Sanders voters
+
+#do the same for Clinton and Trump voters
+clinton.voters <- voters[voters$CC16_328 == "Hillary Clinton", ]
+table(clinton.voters$CC16_328) #confirm that all selected are Clinton voters
+
+trump.voters <- voters[voters$CC16_328 == "Donald Trump", ]
+table(trump.voters$CC16_328) #confirm that all selected are Trump voters
+```
+
+Now find folks who voted for Sanders, Clinton, and Trump in the primary but did not vote in general election.
+
+```{r eval = F, echo = F}
+levels(sanders.voters$CC16_401) #inspect response options - the first four represent nonvoters in the general election
+
+#Sanders primary voters
+
+table(sanders.voters$CC16_401)[1:4] #nonvoters
+table(sanders.voters$CC16_401)[5] #voters
+
+sum(table(sanders.voters$CC16_401)[1:4])/sum(table(sanders.voters$CC16_401)[1:5]) #2.5% of Sanders supporters didn't vote
+
+
+sandersnonvoters <- sanders.voters[sanders.voters$CC16_401 == "I did not vote in the election this November." | sanders.voters$CC16_401 == "I thought about voting this time - but didn't" | sanders.voters$CC16_401 == "I usually vote, but didn't this time." | sanders.voters$CC16_401 == "I attempted to vote but did not or could not.", ]
+sandersnonvoters <- sandersnonvoters[!is.na(sandersnonvoters$CC16_401), ]
+nrow(sandersnonvoters)
+
+
+#Clinton primary voters
+
+table(clinton.voters$CC16_401)[1:4] #nonvoters
+table(clinton.voters$CC16_401)[5] #voters
+
+sum(table(clinton.voters$CC16_401)[1:4])/sum(table(clinton.voters$CC16_401)[1:5]) #1.8% of Clinton supporters didn't vote
+
+clintonnonvoters <- clinton.voters[clinton.voters$CC16_401 == "I did not vote in the election this November." | clinton.voters$CC16_401 == "I thought about voting this time - but didn't" | clinton.voters$CC16_401 == "I usually vote, but didn't this time." | clinton.voters$CC16_401 == "I attempted to vote but did not or could not.", ]
+clintonnonvoters <- clintonnonvoters[!is.na(clintonnonvoters$CC16_401), ]
+nrow(clintonnonvoters)
+
+#Trump primary voters
+
+table(trump.voters$CC16_401)[1:4] #nonvoters
+table(trump.voters$CC16_401)[5] #voters
+
+sum(table(trump.voters$CC16_401)[1:4])/sum(table(trump.voters$CC16_401)[1:5]) #1.4% of Trump supporters didn't vote
+
+trumpnonvoters <- trump.voters[trump.voters$CC16_401 == "I did not vote in the election this November." | trump.voters$CC16_401 == "I thought about voting this time - but didn't" | trump.voters$CC16_401 == "I usually vote, but didn't this time." | trump.voters$CC16_401 == "I attempted to vote but did not or could not.", ]
+trumpnonvoters <- trumpnonvoters[!is.na(trumpnonvoters$CC16_401), ]
+nrow(trumpnonvoters)
+
+```
+
+So now that we've calculated the percentage of Sanders, Clinton, and Trump primary voters who didn't vote in the general election, now we need to pull out only those Sanders, Clinton, and Trump supporters who voted in the general election for some of these analyses.
+
+```{r eval = F, echo = F}
+levels(sanders.voters$CC16_401)
+
+sandersvoters <- sanders.voters[sanders.voters$CC16_401 == "I definitely voted in the General Election.", ]
+sandersvoters <- sandersvoters[!is.na(sandersvoters$CC16_401), ]
+nrow(sandersvoters)
+
+nrow(sandersvoters)/(nrow(sandersnonvoters) + nrow(sandersvoters)) #97.5% of Sanders supporters voted in the general election
+
+sandersvoters #for later, only look at those who voted in the general election
+
+
+#Clinton
+clintonvoters <- clinton.voters[clinton.voters$CC16_401 == "I definitely voted in the General Election.", ]
+clintonvoters <- clintonvoters[!is.na(clintonvoters$CC16_401), ]
+nrow(clintonvoters)
+
+nrow(clintonvoters)/(nrow(clintonnonvoters) + nrow(clintonvoters)) #98.2% of Clinton primary voters then voted in the general election
+
+clintonvoters #for later analyses, only look at those who voted in the general election
+
+
+#Trump
+trumpvoters <- trump.voters[trump.voters$CC16_401 == "I definitely voted in the General Election.", ]
+trumpvoters <- trumpvoters[!is.na(trumpvoters$CC16_401), ]
+nrow(trumpvoters)
+
+nrow(trumpvoters)/(nrow(trumpnonvoters) + nrow(trumpvoters)) #98.6% of Trump primary voters then voted in the general election
+
+trumpvoters #for later analyses, only look at those who voted in the general election
+
+```
+
+Plot percentage of primary voters who didn't vote in the general election.
+
+```{r}
+
+nonvoter.perc <- c(sum(table(sanders.voters$CC16_401)[1:4])/sum(table(sanders.voters$CC16_401)[1:5]), 
+                   sum(table(clinton.voters$CC16_401)[1:4])/sum(table(clinton.voters$CC16_401)[1:5]),
+                   sum(table(trump.voters$CC16_401)[1:4])/sum(table(trump.voters$CC16_401)[1:5])
+                   )
+
+nonvoter.matrix <- matrix(nonvoter.perc * 100, ncol=3, byrow=T, dimnames=list(c("Didn't Vote in General Election"), c("Sanders", "Clinton", "Trump")))
+
+
+key <- c("Sanders", "Clinton", "Trump")
+barplot((nonvoter.matrix), beside=TRUE, space=c(0.1, 0.1, 0.1), col=rev(c(brewer.pal(5, "RdBu")[1], brewer.pal(5, "RdBu")[4], brewer.pal(5, "RdBu")[5])), legend=F, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=3, inset=c(0, -0.3)))
+
+write.table(nonvoter.matrix, "NonVoter_Table.txt")
+```
+
+Statistically analyze whether non-voters in the general election are significantly more prevalent for Sanders primary voters. Voter turnout in the general election is not the same among primary voters for each of the three main candidates (p<0.0001). The effect of being a Sanders primary voter is significantly lower than for Clinton primary voters (p=0.004), meaning that voter turnout was really lower for Sanders than for Clinton. Trump and Clinton voter turnout do not statistically differ (p=0.097).
+
+```{r}
+
+nonvoter.data <- data.frame("Candidate" = c(rep("Trump", nrow(trumpvoters)), 
+                                     rep("Trump", nrow(trumpnonvoters)), 
+                                     rep("Clinton", nrow(clintonvoters)),
+                                     rep("Clinton", nrow(clintonnonvoters)),
+                                     rep("Sanders", nrow(sandersvoters)),
+                                     rep("Sanders", nrow(sandersnonvoters))), 
+                            "Vote" = c(rep(1, nrow(trumpvoters)), 
+                                     rep(0, nrow(trumpnonvoters)), 
+                                     rep(1, nrow(clintonvoters)),
+                                     rep(0, nrow(clintonnonvoters)),
+                                     rep(1, nrow(sandersvoters)),
+                                     rep(0, nrow(sandersnonvoters))))
+
+nonvoter.mod <- glm(Vote ~ Candidate, data=nonvoter.data, family = binomial)
+summary(nonvoter.mod) #the effect of Sanders is significant, but Trump is not (relative to Clinton)
+
+plogis(coef(nonvoter.mod)[1] + coef(nonvoter.mod)[2]) #confirms % from above
+plogis(coef(nonvoter.mod)[1] + coef(nonvoter.mod)[3]) #confirms % from above
+
+anova(nonvoter.mod, test="LRT") #accounting for Candidate significantly improves the model beyond an intercept-only version
+
+```
+
+
+#Analyze Political Ideology of Primary Voters
+
+Analyze political party identity of Sanders, Clinton, and Trump primary voters
+
+```{r}
+#Sanders Supporters
+sanders.dem <- sanders.voters[sanders.voters$CC16_360 == "Democratic Party", ]
+sanders.ind <- sanders.voters[sanders.voters$CC16_360 == "No Party, Independent, Decline to state" | sanders.voters$CC16_360 == "Other", ]
+sanders.rep <- sanders.voters[sanders.voters$CC16_360 == "Republican Party", ]
+
+sanders.party.sum <- sum(nrow(sanders.dem), nrow(sanders.ind), nrow(sanders.rep))
+
+sanders.party <- c(nrow(sanders.dem) / sanders.party.sum * 100,
+                  nrow(sanders.ind) / sanders.party.sum * 100,
+                  nrow(sanders.rep) / sanders.party.sum * 100)
+
+#Clinton Supporters
+clinton.dem <- clinton.voters[clinton.voters$CC16_360 == "Democratic Party", ]
+clinton.ind <- clinton.voters[clinton.voters$CC16_360 == "No Party, Independent, Decline to state" | clinton.voters$CC16_360 == "Other", ]
+clinton.rep <- clinton.voters[clinton.voters$CC16_360 == "Republican Party", ]
+
+clinton.party.sum <- sum(nrow(clinton.dem), nrow(clinton.ind), nrow(clinton.rep))
+
+clinton.party <- c(nrow(clinton.dem) / clinton.party.sum * 100,
+                  nrow(clinton.ind) / clinton.party.sum * 100,
+                  nrow(clinton.rep) / clinton.party.sum * 100)
+
+#Trump Supporters
+trump.dem <- trump.voters[trump.voters$CC16_360 == "Democratic Party", ]
+trump.ind <- trump.voters[trump.voters$CC16_360 == "No Party, Independent, Decline to state" | trump.voters$CC16_360 == "Other", ]
+trump.rep <- trump.voters[trump.voters$CC16_360 == "Republican Party", ]
+
+trump.party.sum <- sum(nrow(trump.dem), nrow(trump.ind), nrow(trump.rep))
+
+trump.party <- c(nrow(trump.dem) / trump.party.sum * 100,
+                  nrow(trump.ind) / trump.party.sum * 100,
+                  nrow(trump.rep) / trump.party.sum * 100)
+
+primary.party.matrix <- matrix(c(sanders.party, clinton.party, trump.party), ncol=3, byrow=T, dimnames=list(c("Sanders", "Clinton", "Trump"), c("Democrat", "Independent", "Republican")))
+
+```
+
+Plot results 
+
+```{r}
+key <- c("Democrat", "Independent", "Republican")
+barplot(t(primary.party.matrix), beside=TRUE, col=rev(c(brewer.pal(5, "RdBu")[1], brewer.pal(5, "RdBu")[3], brewer.pal(5, "RdBu")[5])), legend=key, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=3, inset=c(0, -0.3)))
+mtext(side=1, line=1.7, at=c(2.5, 6.5, 10.5), text=c(paste("n=", sanders.party.sum), paste("n=", clinton.party.sum), paste("n=", trump.party.sum)), cex=0.75) #sample sizes
+
+write.table(primary.party.matrix, "PoliticalPartyPrimaries_Table.txt")
+```
+
+Break apart by open vs closed primary state
+
+```{r}
+
+openstates <- c("Alabama", "Arkansas", "Colorado", "Georgia", "Indiana", "Massachusetts", "Minnesota", "Mississippi", "Missouri", "Montana", "New Hampshire", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "Wisconsin")
+
+open.sanders <- sanders.voters[sanders.voters$inputstate == openstates[1] | sanders.voters$inputstate == openstates[2] | sanders.voters$inputstate == openstates[3] | sanders.voters$inputstate == openstates[4] | sanders.voters$inputstate == openstates[5] | sanders.voters$inputstate == openstates[6] | sanders.voters$inputstate == openstates[7] | sanders.voters$inputstate == openstates[8] | sanders.voters$inputstate == openstates[9] | sanders.voters$inputstate == openstates[10] | sanders.voters$inputstate == openstates[11] | sanders.voters$inputstate == openstates[12] | sanders.voters$inputstate == openstates[13] | sanders.voters$inputstate == openstates[14] | sanders.voters$inputstate == openstates[15] | sanders.voters$inputstate == openstates[16] | sanders.voters$inputstate == openstates[17] | sanders.voters$inputstate == openstates[18] | sanders.voters$inputstate == openstates[19] | sanders.voters$inputstate == openstates[1] | sanders.voters$inputstate == openstates[20] | sanders.voters$inputstate == openstates[21] | sanders.voters$inputstate == openstates[22] | sanders.voters$inputstate == openstates[23] | sanders.voters$inputstate == openstates[24], ]
+
+open.clinton <- clinton.voters[clinton.voters$inputstate == openstates[1] | clinton.voters$inputstate == openstates[2] | clinton.voters$inputstate == openstates[3] | clinton.voters$inputstate == openstates[4] | clinton.voters$inputstate == openstates[5] | clinton.voters$inputstate == openstates[6] | clinton.voters$inputstate == openstates[7] | clinton.voters$inputstate == openstates[8] | clinton.voters$inputstate == openstates[9] | clinton.voters$inputstate == openstates[10] | clinton.voters$inputstate == openstates[11] | clinton.voters$inputstate == openstates[12] | clinton.voters$inputstate == openstates[13] | clinton.voters$inputstate == openstates[14] | clinton.voters$inputstate == openstates[15] | clinton.voters$inputstate == openstates[16] | clinton.voters$inputstate == openstates[17] | clinton.voters$inputstate == openstates[18] | clinton.voters$inputstate == openstates[19] | clinton.voters$inputstate == openstates[1] | clinton.voters$inputstate == openstates[20] | clinton.voters$inputstate == openstates[21] | clinton.voters$inputstate == openstates[22] | clinton.voters$inputstate == openstates[23] | clinton.voters$inputstate == openstates[24], ]
+
+#closed <- sanders.voters[sanders.voters$inputstate == openstates[1] | sanders.voters$inputstate == openstates[2] | sanders.voters$inputstate == openstates[3] | sanders.voters$inputstate == openstates[4] | sanders.voters$inputstate == openstates[5] | sanders.voters$inputstate == openstates[6] | sanders.voters$inputstate == openstates[7] | sanders.voters$inputstate == openstates[8] | sanders.voters$inputstate == openstates[9] | sanders.voters$inputstate == openstates[10] | sanders.voters$inputstate == openstates[11] | sanders.voters$inputstate == openstates[12] | sanders.voters$inputstate == openstates[13] | sanders.voters$inputstate == openstates[14] | sanders.voters$inputstate == openstates[15] | sanders.voters$inputstate == openstates[16] | sanders.voters$inputstate == openstates[17] | sanders.voters$inputstate == openstates[18] | sanders.voters$inputstate == openstates[19] | sanders.voters$inputstate == openstates[1] | sanders.voters$inputstate == openstates[20] | sanders.voters$inputstate == openstates[21] | sanders.voters$inputstate == openstates[22] | sanders.voters$inputstate == openstates[23] | sanders.voters$inputstate == openstates[24], ]
+
+sum(table(open.sanders$inputstate))
+sum(table(closed$inputstate))
+
+sum(table(open.clinton$inputstate))
+
+```
+
+Repeat analysis above with primary-type-specific data.
+
+```{r}
+#Sanders Supporters
+sanders.dem <- open.sanders[open.sanders$CC16_360 == "Democratic Party", ]
+sanders.ind <- open.sanders[open.sanders$CC16_360 == "No Party, Independent, Decline to state" | open.sanders$CC16_360 == "Other", ]
+sanders.rep <- open.sanders[open.sanders$CC16_360 == "Republican Party", ]
+
+sanders.party.sum <- sum(nrow(sanders.dem), nrow(sanders.ind), nrow(sanders.rep))
+
+sanders.party <- c(nrow(sanders.dem) / sanders.party.sum * 100,
+                  nrow(sanders.ind) / sanders.party.sum * 100,
+                  nrow(sanders.rep) / sanders.party.sum * 100)
+
+#Clinton Supporters
+clinton.dem <- open.clinton[open.clinton$CC16_360 == "Democratic Party", ]
+clinton.ind <- open.clinton[open.clinton$CC16_360 == "No Party, Independent, Decline to state" | open.clinton$CC16_360 == "Other", ]
+clinton.rep <- open.clinton[open.clinton$CC16_360 == "Republican Party", ]
+
+clinton.party.sum <- sum(nrow(clinton.dem), nrow(clinton.ind), nrow(clinton.rep))
+
+clinton.party <- c(nrow(clinton.dem) / clinton.party.sum * 100,
+                  nrow(clinton.ind) / clinton.party.sum * 100,
+                  nrow(clinton.rep) / clinton.party.sum * 100)
+
+```
+
+Analyze political ideology of Sanders, Clinton, and Trump primary voters
+
+```{r eval = F, echo = F}
+#Sanders Supporters
+sanders.vl <- sanders.voters[sanders.voters$ideo5 == "Very liberal", ]
+sanders.l <- sanders.voters[sanders.voters$ideo5 == "Liberal", ]
+sanders.m <- sanders.voters[sanders.voters$ideo5 == "Moderate", ]
+sanders.c <- sanders.voters[sanders.voters$ideo5 == "Conservative", ]
+sanders.vc <- sanders.voters[sanders.voters$ideo5 == "Very conservative", ]
+sanders.ns <- sanders.voters[sanders.voters$ideo5 == "Not sure", ]
+
+sanders.ideo.sum <- sum(nrow(sanders.vl), nrow(sanders.l), nrow(sanders.m), nrow(sanders.c), nrow(sanders.vc), nrow(sanders.ns))
+
+sanders.ideo <- c(nrow(sanders.vl) / sanders.ideo.sum,
+                  nrow(sanders.l) / sanders.ideo.sum,
+                  nrow(sanders.m) / sanders.ideo.sum,
+                  nrow(sanders.c) / sanders.ideo.sum,
+                  nrow(sanders.vc) / sanders.ideo.sum,
+                  nrow(sanders.ns) / sanders.ideo.sum)
+
+#Clinton Supporters
+clinton.vl <- clinton.voters[clinton.voters$ideo5 == "Very liberal", ]
+clinton.l <- clinton.voters[clinton.voters$ideo5 == "Liberal", ]
+clinton.m <- clinton.voters[clinton.voters$ideo5 == "Moderate", ]
+clinton.c <- clinton.voters[clinton.voters$ideo5 == "Conservative", ]
+clinton.vc <- clinton.voters[clinton.voters$ideo5 == "Very conservative", ]
+clinton.ns <- clinton.voters[clinton.voters$ideo5 == "Not sure", ]
+
+clinton.ideo.sum <- sum(nrow(clinton.vl), nrow(clinton.l), nrow(clinton.m), nrow(clinton.c), nrow(clinton.vc), nrow(clinton.ns))
+
+clinton.ideo <- c(nrow(clinton.vl) / clinton.ideo.sum,
+                  nrow(clinton.l) / clinton.ideo.sum,
+                  nrow(clinton.m) / clinton.ideo.sum,
+                  nrow(clinton.c) / clinton.ideo.sum,
+                  nrow(clinton.vc) / clinton.ideo.sum,
+                  nrow(clinton.ns) / clinton.ideo.sum)
+
+
+#Trump Supporters
+trump.vl <- trump.voters[trump.voters$ideo5 == "Very liberal", ]
+trump.l <- trump.voters[trump.voters$ideo5 == "Liberal", ]
+trump.m <- trump.voters[trump.voters$ideo5 == "Moderate", ]
+trump.c <- trump.voters[trump.voters$ideo5 == "Conservative", ]
+trump.vc <- trump.voters[trump.voters$ideo5 == "Very conservative", ]
+trump.ns <- trump.voters[trump.voters$ideo5 == "Not sure", ]
+
+trump.ideo.sum <- sum(nrow(trump.vl), nrow(trump.l), nrow(trump.m), nrow(trump.c), nrow(trump.vc), nrow(trump.ns))
+
+trump.ideo <- c(nrow(trump.vl) / trump.ideo.sum,
+                nrow(trump.l) / trump.ideo.sum,
+                nrow(trump.m) / trump.ideo.sum,
+                nrow(trump.c) / trump.ideo.sum,
+                nrow(trump.vc) / trump.ideo.sum,
+                nrow(trump.ns) / trump.ideo.sum)
+
+primary.ideo.matrix <- matrix(c(sanders.ideo, clinton.ideo, trump.ideo) * 100, ncol=3, byrow=F, dimnames=list(c("Very Liberal", "Liberal", "Moderate", "Conservative", "Very Conservative", "Not Sure"), c("Sanders", "Clinton", "Trump")))
+
+```
+
+Plot political ideology according to the candidate voted for in the primary.
+
+```{r}
+key <- c("Very Liberal", "Liberal", "Moderate", "Conservative", "Very Conservative", "Not Sure")
+barplot((primary.ideo.matrix), beside=TRUE, col=c(rev(brewer.pal(5, "RdBu")), "gray"), legend=key, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=3, inset=c(0, -0.3)))
+mtext(side=1, line=1.7, at=c(4.1, 11.1, 18.1), text=c(paste("n=", sanders.ideo.sum), paste("n=", clinton.ideo.sum), paste("n=", trump.ideo.sum)), cex=0.75) #sample sizes
+
+write.table(primary.ideo.matrix, "PoliticalIdeologyPrimaries_Table.txt")
+```
+
+
+##Analyze Who Sanders Primary Voters Then Voted for in the General Election
+
+Now to analyze who Sanders supporters voted for in the general election
+
+```{r eval = F, echo = F}
+levels(sandersvoters$CC16_410a)
+
+#Sanders to others
+
+sanderstoclinton <- sandersvoters[sandersvoters$CC16_410a == "Hillary Clinton (Democrat)", ]
+sanderstoclinton <- sanderstoclinton[!is.na(sanderstoclinton$CC16_410a), ]
+
+sanderstotrump <- sandersvoters[sandersvoters$CC16_410a == "Donald Trump (Republican)", ]
+sanderstotrump <- sanderstotrump[!is.na(sanderstotrump$CC16_410a), ]
+
+sanderstoother <- sandersvoters[sandersvoters$CC16_410a == "Jill Stein (Green)" | sandersvoters$CC16_410a == "Gary Johnson (Libertarian)" | sandersvoters$CC16_410a == "Evan McMullin (Independent)" | sandersvoters$CC16_410a == "Other", ]
+sanderstoother <- sanderstoother[!is.na(sanderstoother$CC16_410a), ]
+
+sandersto.sum <- sum(nrow(sanderstoclinton), nrow(sanderstotrump), nrow(sanderstoother))
+
+nrow(sanderstoclinton)/sandersto.sum
+nrow(sanderstotrump)/sandersto.sum
+nrow(sanderstoother)/sandersto.sum
+
+
+#add in those from above who voted for Sanders in the primary but didn't vote in the general election
+
+nrow(sandersnonvoters) / (nrow(sandersnonvoters) + nrow(sandersvoters))
+
+#combine into matrix
+
+sandersto <- c(nrow(sanderstoclinton)/(nrow(sandersnonvoters) + 
+                                         nrow(sandersvoters)),
+                      nrow(sanderstotrump)/(nrow(sandersnonvoters) + 
+                                              nrow(sandersvoters)),
+                      nrow(sanderstoother)/(nrow(sandersnonvoters) + 
+                                              nrow(sandersvoters)), 
+                      nrow(sandersnonvoters) / (nrow(sandersnonvoters) + 
+                                                  nrow(sandersvoters)))
+)
+
+sandersto.matrix <- matrix(sandersto * 100, ncol=4, byrow=T, dimnames=list(c("Percentage"), c("Clinton", "Trump", "Other", "Didn't Vote")))
+```
+
+Plot who Sanders primary voters then voted for in the general election.
+
+```{r}
+key <- dimnames(sandersto.matrix)[[2]]
+barplot((sandersto.matrix), beside=TRUE, space=c(0.1, 0.1, 0.1, 0.1), col=c(brewer.pal(5, "RdBu")[5], brewer.pal(5, "RdBu")[1], brewer.pal(5, "RdBu")[3], "gray"), legend=F, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=4, inset=c(0, -0.3)))
+mtext(side=1, line=1.7, at=c(0.63, 1.72, 2.82, 3.93), text=c(paste("n=", nrow(sanderstoclinton)), paste("n=", nrow(sanderstotrump)), paste("n=", nrow(sanderstoother)), paste("n=", nrow(sandersnonvoters))), cex=0.75) #sample sizes
+
+write.table(sandersto.matrix, "SandersToCandidates_Table.txt")
+```
+
+
+Analyze who Sanders primary voters of varying political ideologies voted for in the general election.
+
+```{r}
+#pull in political ideology data on Sanders primary voters from above
+
+#who did very liberal Sanders primary voters then vote for in the general?
+sand.vl.clint <- sanders.vl[sanders.vl$CC16_410a == "Hillary Clinton (Democrat)", ]
+sand.vl.clint <- sand.vl.clint[!is.na(sand.vl.clint$CC16_410a), ]
+
+sand.vl.trump <- sanders.vl[sanders.vl$CC16_410a == "Donald Trump (Republican)", ]
+sand.vl.trump <- sand.vl.trump[!is.na(sand.vl.trump$CC16_410a), ]
+
+sand.vl.oth <- sanders.vl[sanders.vl$CC16_410a == "Jill Stein (Green)" | sanders.vl$CC16_410a == "Gary Johnson (Libertarian)" | sanders.vl$CC16_410a == "Evan McMullin (Independent)" | sanders.vl$CC16_410a == "Other", ]
+sand.vl.oth <- sand.vl.oth[!is.na(sand.vl.oth$CC16_410a), ]
+
+sum(table(sanders.vl$CC16_401)[1:4]) #very liberal non-voters
+
+sand.vl.sum <- sum(nrow(sand.vl.clint), nrow(sand.vl.trump), nrow(sand.vl.oth), sum(table(sanders.vl$CC16_401)[1:4]))
+
+sand.vl.perc <- c(nrow(sand.vl.clint) / sand.vl.sum * 100, 
+                  nrow(sand.vl.trump) / sand.vl.sum * 100, 
+                  nrow(sand.vl.oth) / sand.vl.sum * 100, 
+                  sum(table(sanders.vl$CC16_401)[1:4]) / sand.vl.sum * 100)
+
+
+#who did liberal Sanders primary voters then vote for?
+
+sand.l.clint <- sanders.l[sanders.l$CC16_410a == "Hillary Clinton (Democrat)", ]
+sand.l.clint <- sand.l.clint[!is.na(sand.l.clint$CC16_410a), ]
+
+sand.l.trump <- sanders.l[sanders.l$CC16_410a == "Donald Trump (Republican)", ]
+sand.l.trump <- sand.l.trump[!is.na(sand.l.trump$CC16_410a), ]
+
+sand.l.oth <- sanders.l[sanders.l$CC16_410a == "Jill Stein (Green)" | sanders.l$CC16_410a == "Gary Johnson (Libertarian)" | sanders.l$CC16_410a == "Evan McMullin (Independent)" | sanders.l$CC16_410a == "Other", ]
+sand.l.oth <- sand.l.oth[!is.na(sand.l.oth$CC16_410a), ]
+
+sum(table(sanders.l$CC16_401)[1:4]) #non-voters
+
+sand.l.sum <- sum(nrow(sand.l.clint), nrow(sand.l.trump), nrow(sand.l.oth), sum(table(sanders.l$CC16_401)[1:4]))
+
+sand.l.perc <- c(nrow(sand.l.clint) / sand.l.sum * 100, 
+                  nrow(sand.l.trump) / sand.l.sum * 100, 
+                  nrow(sand.l.oth) / sand.l.sum * 100, 
+                  sum(table(sanders.l$CC16_401)[1:4]) / sand.l.sum * 100)
+
+
+#who did moderate Sanders primary voters then vote for?
+
+sand.m.clint <- sanders.m[sanders.m$CC16_410a == "Hillary Clinton (Democrat)", ]
+sand.m.clint <- sand.m.clint[!is.na(sand.m.clint$CC16_410a), ]
+
+sand.m.trump <- sanders.m[sanders.m$CC16_410a == "Donald Trump (Republican)", ]
+sand.m.trump <- sand.m.trump[!is.na(sand.m.trump$CC16_410a), ]
+
+sand.m.oth <- sanders.m[sanders.m$CC16_410a == "Jill Stein (Green)" | sanders.m$CC16_410a == "Gary Johnson (Libertarian)" | sanders.m$CC16_410a == "Evan McMullin (Independent)" | sanders.m$CC16_410a == "Other", ]
+sand.m.oth <- sand.m.oth[!is.na(sand.m.oth$CC16_410a), ]
+
+sum(table(sanders.m$CC16_401)[1:4]) #non-voters
+
+sand.m.sum <- sum(nrow(sand.m.clint), nrow(sand.m.trump), nrow(sand.m.oth), sum(table(sanders.m$CC16_401)[1:4]))
+
+sand.m.perc <- c(nrow(sand.m.clint) / sand.m.sum * 100, 
+                  nrow(sand.m.trump) / sand.m.sum * 100, 
+                  nrow(sand.m.oth) / sand.m.sum * 100, 
+                  sum(table(sanders.m$CC16_401)[1:4]) / sand.m.sum * 100)
+
+
+#who did conservative Sanders primary voters then vote for?
+
+sand.c.clint <- sanders.c[sanders.c$CC16_410a == "Hillary Clinton (Democrat)", ]
+sand.c.clint <- sand.c.clint[!is.na(sand.c.clint$CC16_410a), ]
+
+sand.c.trump <- sanders.c[sanders.c$CC16_410a == "Donald Trump (Republican)", ]
+sand.c.trump <- sand.c.trump[!is.na(sand.c.trump$CC16_410a), ]
+
+sand.c.oth <- sanders.c[sanders.c$CC16_410a == "Jill Stein (Green)" | sanders.c$CC16_410a == "Gary Johnson (Libertarian)" | sanders.c$CC16_410a == "Evan McMullin (Independent)" | sanders.c$CC16_410a == "Other", ]
+sand.c.oth <- sand.c.oth[!is.na(sand.c.oth$CC16_410a), ]
+
+sum(table(sanders.c$CC16_401)[1:4]) #non-voters
+
+sand.c.sum <- sum(nrow(sand.c.clint), nrow(sand.c.trump), nrow(sand.c.oth), sum(table(sanders.c$CC16_401)[1:4]))
+
+sand.c.perc <- c(nrow(sand.c.clint) / sand.c.sum * 100, 
+                  nrow(sand.c.trump) / sand.c.sum * 100, 
+                  nrow(sand.c.oth) / sand.c.sum * 100, 
+                  sum(table(sanders.c$CC16_401)[1:4]) / sand.c.sum * 100)
+
+
+#who did very conservative Sanders primary voters then vote for?
+
+sand.vc.clint <- sanders.vc[sanders.vc$CC16_410a == "Hillary Clinton (Democrat)", ]
+sand.vc.clint <- sand.vc.clint[!is.na(sand.vc.clint$CC16_410a), ]
+
+sand.vc.trump <- sanders.vc[sanders.vc$CC16_410a == "Donald Trump (Republican)", ]
+sand.vc.trump <- sand.vc.trump[!is.na(sand.vc.trump$CC16_410a), ]
+
+sand.vc.oth <- sanders.vc[sanders.vc$CC16_410a == "Jill Stein (Green)" | sanders.vc$CC16_410a == "Gary Johnson (Libertarian)" | sanders.vc$CC16_410a == "Evan McMullin (Independent)" | sanders.vc$CC16_410a == "Other", ]
+sand.vc.oth <- sand.vc.oth[!is.na(sand.vc.oth$CC16_410a), ]
+
+sum(table(sanders.vc$CC16_401)[1:4]) #non-voters
+
+sand.vc.sum <- sum(nrow(sand.vc.clint), nrow(sand.vc.trump), nrow(sand.vc.oth), sum(table(sanders.vc$CC16_401)[1:4]))
+
+sand.vc.perc <- c(nrow(sand.vc.clint) / sand.vc.sum * 100, 
+                  nrow(sand.vc.trump) / sand.vc.sum * 100, 
+                  nrow(sand.vc.oth) / sand.vc.sum * 100, 
+                  sum(table(sanders.vc$CC16_401)[1:4]) / sand.vc.sum * 100)
+
+
+#who did "not sure" Sanders primary voters then vote for?
+
+sand.ns.clint <- sanders.ns[sanders.ns$CC16_410a == "Hillary Clinton (Democrat)", ]
+sand.ns.clint <- sand.ns.clint[!is.na(sand.ns.clint$CC16_410a), ]
+
+sand.ns.trump <- sanders.ns[sanders.ns$CC16_410a == "Donald Trump (Republican)", ]
+sand.ns.trump <- sand.ns.trump[!is.na(sand.ns.trump$CC16_410a), ]
+
+sand.ns.oth <- sanders.ns[sanders.ns$CC16_410a == "Jill Stein (Green)" | sanders.ns$CC16_410a == "Gary Johnson (Libertarian)" | sanders.ns$CC16_410a == "Evan McMullin (Independent)" | sanders.ns$CC16_410a == "Other", ]
+sand.ns.oth <- sand.ns.oth[!is.na(sand.ns.oth$CC16_410a), ]
+
+sum(table(sanders.ns$CC16_401)[1:4]) #non-voters
+
+sand.ns.sum <- sum(nrow(sand.ns.clint), nrow(sand.ns.trump), nrow(sand.ns.oth), sum(table(sanders.ns$CC16_401)[1:4]))
+
+sand.ns.perc <- c(nrow(sand.ns.clint) / sand.ns.sum * 100, 
+                  nrow(sand.ns.trump) / sand.ns.sum * 100, 
+                  nrow(sand.ns.oth) / sand.ns.sum * 100, 
+                  sum(table(sanders.ns$CC16_401)[1:4]) / sand.ns.sum * 100)
+
+
+#combine all percentages into one matrix
+
+sand.ideo.matrix <- matrix(c(sand.vl.perc, sand.l.perc, sand.m.perc, sand.c.perc, sand.vc.perc, sand.ns.perc), ncol=4, byrow=T, dimnames=list(c("Very \nLiberal", "Liberal", "Moderate", "Conservative", "Very \nConservative", "Not \nSure"), c("Clinton", "Trump", "Other", "Didn't Vote")))
+
+```
+
+
+Plot the general election voting of Sanders primary voters by political ideology
+
+```{r}
+key <- dimnames(sand.ideo.matrix)[[2]]
+barplot(t(sand.ideo.matrix), beside=T, col=c(brewer.pal(5, "RdBu")[5], brewer.pal(5, "RdBu")[1], brewer.pal(5, "RdBu")[3], "gray"), legend=key, args.legend=list(x="top", cex=.5, bty="n", ncol=4, inset=c(0, -0.3)), cex.names=0.7, ylab="Percent")
+mtext(side=1, line=1.7, at=c(3, 8, 13, 18, 23, 28.2), text=c(paste("n=", sand.vl.sum), paste("n=", sand.l.sum), paste("n=", sand.m.sum), paste("n=", sand.c.sum), paste("n=", sand.vc.sum), paste("n=", sand.ns.sum)), cex=0.6) #sample sizes
+
+write.table(sand.ideo.matrix, "SandersToCandidateIdeology_Table.txt")
+```
+
+Analyze party ideology of Sanders supporters by the candidate they voted for in the general
+
+```{r eval = F, echo = F}
+#Sanders to Clinton
+sancli.vl <- sanderstoclinton[sanderstoclinton$ideo5 == "Very liberal", ]
+sancli.l <- sanderstoclinton[sanderstoclinton$ideo5 == "Liberal", ]
+sancli.m <- sanderstoclinton[sanderstoclinton$ideo5 == "Moderate", ]
+sancli.c <- sanderstoclinton[sanderstoclinton$ideo5 == "Conservative", ]
+sancli.vc <- sanderstoclinton[sanderstoclinton$ideo5 == "Very conservative", ]
+sancli.ns <- sanderstoclinton[sanderstoclinton$ideo5 == "Not sure", ]
+
+sancli.ideo.sum <- sum(nrow(sancli.vl), nrow(sancli.l), nrow(sancli.m), nrow(sancli.c), nrow(sancli.vc), nrow(sancli.ns))
+
+sc.ideo <- c(nrow(sancli.vl) / sancli.ideo.sum, nrow(sancli.l) / sancli.ideo.sum, nrow(sancli.m) / sancli.ideo.sum, nrow(sancli.c) / sancli.ideo.sum, nrow(sancli.vc) / sancli.ideo.sum, nrow(sancli.ns) / sancli.ideo.sum)
+
+
+#Sanders to Trump
+santru.vl <- sanderstotrump[sanderstotrump$ideo5 == "Very liberal", ]
+santru.l <- sanderstotrump[sanderstotrump$ideo5 == "Liberal", ]
+santru.m <- sanderstotrump[sanderstotrump$ideo5 == "Moderate", ]
+santru.c <- sanderstotrump[sanderstotrump$ideo5 == "Conservative", ]
+santru.vc <- sanderstotrump[sanderstotrump$ideo5 == "Very conservative", ]
+santru.ns <- sanderstotrump[sanderstotrump$ideo5 == "Not sure", ]
+
+santru.ideo.sum <- sum(nrow(santru.vl), nrow(santru.l), nrow(santru.m), nrow(santru.c), nrow(santru.vc), nrow(santru.ns))
+
+st.ideo <- c(nrow(santru.vl) / santru.ideo.sum, nrow(santru.l) / santru.ideo.sum, nrow(santru.m) / santru.ideo.sum, nrow(santru.c) / santru.ideo.sum, nrow(santru.vc) / santru.ideo.sum, nrow(santru.ns) / santru.ideo.sum)
+
+
+#Sanders to Other
+sanoth.vl <- sanderstoother[sanderstoother$ideo5 == "Very liberal", ]
+sanoth.l <- sanderstoother[sanderstoother$ideo5 == "Liberal", ]
+sanoth.m <- sanderstoother[sanderstoother$ideo5 == "Moderate", ]
+sanoth.c <- sanderstoother[sanderstoother$ideo5 == "Conservative", ]
+sanoth.vc <- sanderstoother[sanderstoother$ideo5 == "Very conservative", ]
+sanoth.ns <- sanderstoother[sanderstoother$ideo5 == "Not sure", ]
+
+sanoth.ideo.sum <- sum(nrow(sanoth.vl), nrow(sanoth.l), nrow(sanoth.m), nrow(sanoth.c), nrow(sanoth.vc), nrow(sanoth.ns))
+
+so.ideo <- c(nrow(sanoth.vl) / sanoth.ideo.sum, nrow(sanoth.l) / sanoth.ideo.sum, nrow(sanoth.m) / sanoth.ideo.sum, nrow(sanoth.c) / sanoth.ideo.sum, nrow(sanoth.vc) / sanoth.ideo.sum, nrow(sanoth.ns) / sanoth.ideo.sum)
+
+
+#Sanders to No Vote
+
+sanno.vl <- sandersnonvoters[sandersnonvoters$ideo5 == "Very liberal", ]
+sanno.l <- sandersnonvoters[sandersnonvoters$ideo5 == "Liberal", ]
+sanno.m <- sandersnonvoters[sandersnonvoters$ideo5 == "Moderate", ]
+sanno.c <- sandersnonvoters[sandersnonvoters$ideo5 == "Conservative", ]
+sanno.vc <- sandersnonvoters[sandersnonvoters$ideo5 == "Very conservative", ]
+sanno.ns <- sandersnonvoters[sandersnonvoters$ideo5 == "Not sure", ]
+
+sanno.ideo.sum <- sum(nrow(sanno.vl), nrow(sanno.l), nrow(sanno.m), nrow(sanno.c), nrow(sanno.vc), nrow(sanno.ns))
+
+sn.ideo <- c(nrow(sanno.vl) / sanno.ideo.sum, nrow(sanno.l) / sanno.ideo.sum, nrow(sanno.m) / sanno.ideo.sum, nrow(sanno.c) / sanno.ideo.sum, nrow(sanno.vc) / sanno.ideo.sum, nrow(sanno.ns) / sanno.ideo.sum)
+
+
+#Combine into matrix
+
+sandtocand.ideo.matrix <- matrix(c(sc.ideo, st.ideo, so.ideo, sn.ideo) * 100, ncol=6, byrow=T, dimnames=list(c("Clinton", "Trump", "Other", "Didn't Vote"), c("Very Liberal", "Liberal", "Moderate", "Conservative", "Very Conservative", "Not Sure")))
+
+```
+
+Plot the political ideology of Sanders primary voters by general election candidate
+
+```{r}
+key <- dimnames(sandtocand.ideo.matrix)[[2]]
+barplot(t(sandtocand.ideo.matrix), beside=T, col=c(rev(brewer.pal(5, "RdBu")), "gray"), legend=key, args.legend=list(x="top", cex=.5, bty="n", ncol=3, inset=c(0, -0.3)), ylab="Percent")
+mtext(side=1, line=1.7, at=c(4.1, 11.1, 18, 25), text=c(paste("n=", sancli.ideo.sum), paste("n=", santru.ideo.sum), paste("n=", sanoth.ideo.sum), paste("n=", sanno.ideo.sum)), cex=0.75) #sample sizes
+
+write.table(sandtocand.ideo.matrix, "SandersIdeologyByCandidate_Table.txt")
+```
+
+
+#Compare These Data to the 2008 Election Cycle
+
+It seems that Sanders supporters in the 2016 primary were less likely to identify as Democrats, but more likely to be 'very liberal.' It also seems that many Sanders supporters voted for candidates other than the Democratic nominee, or didn't vote at all. Comparing these trends to the 2008 elections may elucidate whether Sanders supporters are indeed behaving in a unique way.
+
+First, load the 2008 polling data.
+
+```{r}
+load("~/Documents/Research Projects/Politics/cces_2008_common.RData") #note that this replaces the object 'x'
+```
+
+Then, let's run the checks 
+
+```{r}
+y <- x[x$vote_pri08 == "validated record of voting in general election", ] #if voter was matched to voter file; see pg. 94 of CCES 2008 Guide for explanation
+
+#note that the coding system states "voting in the general election" but in actuality this variable pertains to the primary, and the variable vote_gen08 pertains to the general election
+
+z <- x[x$vote_gen08 == "validated record of voting in general election", ]
+```
+
+Now let's identify primary voters for several key candidates.
+
+```{r}
+voters <- y[y$CC324_1 == "Yes" | y$CC324_2 == "Yes", ] #eliminate nonvoters in primary so that we're only analyzing folks who voted in the primary
+
+#note: here, I only analyze data from primaries, not caucuses, due to difficulties with how caucus data is reported
+
+obama.voters <- voters[voters$CC325a == "Barack Obama", ] #isolate Sanders voters
+
+table(obama.voters$CC325a) #confirm that all selected are Sanders voters
+
+#do the same for Clinton voters
+clinton.voters <- voters[voters$CC325a == "Hillary Clinton", ]
+table(clinton.voters$CC325a) #confirm that all selected are Clinton voters
+```
+
+Now find folks who voted for Obama and Clinton in the primary but did not vote in general election.
+
+```{r eval = F, echo = F}
+levels(obama.voters$CC403) #inspect response options - the first four represent nonvoters in the general election
+
+#Obama primary voters
+
+table(obama.voters$CC403)[1:4] #nonvoters
+table(obama.voters$CC403)[5] #voters
+
+sum(table(obama.voters$CC403)[1:4])/sum(table(obama.voters$CC403)[1:5]) #only 0.3% of Obama primary voters didn't vote in the general election
+
+
+obamanonvoters <- obama.voters[obama.voters$CC403 == "I did not vote in the election this November" | obama.voters$CC403 == "I thought about voting this time - but didn't" | obama.voters$CC403 == "I usually vote, but didn't this time" | obama.voters$CC403 == "I attempted to vote but did not or could not", ]
+obamanonvoters <- obamanonvoters[!is.na(obamanonvoters$CC403), ]
+nrow(obamanonvoters)
+
+
+#Clinton primary voters
+
+table(clinton.voters$CC403)[1:4] #nonvoters
+table(clinton.voters$CC403)[5] #voters
+
+sum(table(clinton.voters$CC403)[1:4])/sum(table(clinton.voters$CC403)[1:5]) #1.4% of Clinton primary voters didn't vote in the general election
+
+clintonnonvoters <- clinton.voters[clinton.voters$CC403 == "I did not vote in the election this November" | clinton.voters$CC403 == "I thought about voting this time - but didn't" | clinton.voters$CC403 == "I usually vote, but didn't this time" | clinton.voters$CC403 == "I attempted to vote but did not or could not", ]
+clintonnonvoters <- clintonnonvoters[!is.na(clintonnonvoters$CC403), ]
+nrow(clintonnonvoters)
+```
+
+So now that we've calculated the percentage of Obama and Clinton primary voters who didn't vote in the general election, now we need to pull out only those supporters who voted in the general election for some of these analyses.
+
+```{r eval = F, echo = F}
+obamavoters <- obama.voters[obama.voters$CC403 == "I definitely voted in the November General Election", ]
+obamavoters <- obamavoters[!is.na(obamavoters$CC403), ]
+nrow(obamavoters)
+
+nrow(obamavoters)/(nrow(obamanonvoters) + nrow(obamavoters)) #99.6% of Obama primary voters then voted in the general election
+
+
+#Clinton
+clintonvoters <- clinton.voters[clinton.voters$CC403 == "I definitely voted in the November General Election", ]
+clintonvoters <- clintonvoters[!is.na(clintonvoters$CC403), ]
+nrow(clintonvoters)
+
+nrow(clintonvoters)/(nrow(clintonnonvoters) + nrow(clintonvoters)) #98.6% of Clinton primary voters then voted in the general election
+```
+
+Plot percentage of primary voters who didn't vote in the general election.
+
+```{r}
+
+nonvoter.perc.08 <- c(sum(table(obama.voters$CC403)[1:4])/sum(table(obama.voters$CC403)[1:5]), 
+                   sum(table(clinton.voters$CC403)[1:4])/sum(table(clinton.voters$CC403)[1:5])
+                   )
+
+nonvoter.matrix.08 <- matrix(nonvoter.perc.08 * 100, ncol=2, byrow=T, dimnames=list(c("Didn't Vote in General Election"), c("Obama", "Clinton")))
+
+
+key <- c("Sanders", "Clinton")
+barplot((nonvoter.matrix.08), beside=TRUE, space=c(0.1, 0.1), col=c(brewer.pal(5, "RdBu")[5], brewer.pal(5, "RdBu")[4]), legend=F, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=3, inset=c(0, -0.3)))
+
+write.table(nonvoter.matrix.08, "NonVoter_Table_08.txt")
+```
+
+Statistically analyze whether non-voters in the general election are significantly more prevalent for Obama primary voters. Voter turnout in the general election is not the same among primary voters for each of the two main democratic candidates (p<0.0001). The effect of being an Obama primary voter is significantly higher than for Clinton primary voters (p=0.00005), meaning that primary voter turnout was really much lower for Clinton than for Obama.
+
+```{r}
+
+nonvoter.data.08 <- data.frame("Candidate" = c(rep("Obama", nrow(obamavoters)), 
+                                     rep("Obama", nrow(obamanonvoters)), 
+                                     rep("Clinton", nrow(clintonvoters)),
+                                     rep("Clinton", nrow(clintonnonvoters))), 
+                            "Vote" = c(rep(1, nrow(obamavoters)), 
+                                     rep(0, nrow(obamanonvoters)), 
+                                     rep(1, nrow(clintonvoters)),
+                                     rep(0, nrow(clintonnonvoters))))
+
+nonvoter.mod.08 <- glm(Vote ~ Candidate, data=nonvoter.data.08, family = binomial)
+summary(nonvoter.mod.08) #the effect of Obama is significant relative to Clinton
+
+plogis(coef(nonvoter.mod.08)[1] + coef(nonvoter.mod.08)[2]) #confirms % from above
+
+anova(nonvoter.mod.08, test="LRT") #accounting for Candidate significantly improves the model beyond an intercept-only version
+
+```
+
+
+#Analyze Political Ideology of Primary Voters
+
+Analyze political party identity of Obama and Clinton primary voters
+
+```{r}
+levels(obama.voters$CC402)
+
+#Obama Supporters
+obama.dem <- obama.voters[obama.voters$CC402 == "Democratic", ]
+obama.ind <- obama.voters[obama.voters$CC402 == "Libertarian" | obama.voters$CC402 == "Independent" | obama.voters$CC402 == "Green" | obama.voters$CC402 == "Other (state specific, response provided)" | obama.voters$CC402 == "Other (state specific, response provided) - 2" | obama.voters$CC402 == "Other (state specific, response provided) - 3" | obama.voters$CC402 == "Other" | obama.voters$CC402 == "Don't know/No affiliation", ]
+obama.rep <- obama.voters[obama.voters$CC402 == "Republican", ]
+
+obama.party.sum <- sum(nrow(obama.dem), nrow(obama.ind), nrow(obama.rep))
+
+obama.party <- c(nrow(obama.dem) / obama.party.sum * 100,
+                  nrow(obama.ind) / obama.party.sum * 100,
+                  nrow(obama.rep) / obama.party.sum * 100)
+
+#Clinton Supporters
+clinton.dem <- clinton.voters[clinton.voters$CC402 == "Democratic", ]
+clinton.ind <- clinton.voters[clinton.voters$CC402 == "Libertarian" | clinton.voters$CC402 == "Independent" | clinton.voters$CC402 == "Green" | clinton.voters$CC402 == "Other (state specific, response provided)" | clinton.voters$CC402 == "Other (state specific, response provided) - 2" | clinton.voters$CC402 == "Other (state specific, response provided) - 3" | clinton.voters$CC402 == "Other" | clinton.voters$CC402 == "Don't know/No affiliation", ]
+clinton.rep <- clinton.voters[clinton.voters$CC402 == "Republican", ]
+
+clinton.party.sum <- sum(nrow(clinton.dem), nrow(clinton.ind), nrow(clinton.rep))
+
+clinton.party <- c(nrow(clinton.dem) / clinton.party.sum * 100,
+                  nrow(clinton.ind) / clinton.party.sum * 100,
+                  nrow(clinton.rep) / clinton.party.sum * 100)
+
+
+primary.party.matrix.08 <- matrix(c(obama.party, clinton.party), ncol=3, byrow=T, dimnames=list(c("Obama", "Clinton"), c("Democrat", "Independent", "Republican")))
+```
+
+Plot results 
+
+```{r}
+key <- c("Democrat", "Independent", "Republican")
+barplot(t(primary.party.matrix.08), beside=TRUE, col=rev(c(brewer.pal(5, "RdBu")[1], brewer.pal(5, "RdBu")[3], brewer.pal(5, "RdBu")[5])), legend=key, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=3, inset=c(0, -0.3)))
+mtext(side=1, line=1.7, at=c(2.55, 6.55), text=c(paste("n=", obama.party.sum), paste("n=", clinton.party.sum)), cex=0.75) #sample sizes
+
+write.table(primary.party.matrix.08, "PoliticalPartyPrimaries08_Table.txt")
+```
+
+Analyze political ideology of Obama and Clinton primary voters
+
+```{r eval = F, echo = F}
+#Sanders Supporters
+obama.vl <- obama.voters[obama.voters$V243 == "Very liberal", ]
+obama.l <- obama.voters[obama.voters$V243 == "Liberal", ]
+obama.m <- obama.voters[obama.voters$V243 == "Moderate", ]
+obama.c <- obama.voters[obama.voters$V243 == "Conservative", ]
+obama.vc <- obama.voters[obama.voters$V243 == "Very conservative", ]
+obama.ns <- obama.voters[obama.voters$V243 == "Not sure", ]
+
+obama.ideo.sum <- sum(nrow(obama.vl), nrow(obama.l), nrow(obama.m), nrow(obama.c), nrow(obama.vc), nrow(obama.ns))
+
+obama.ideo <- c(nrow(obama.vl) / obama.ideo.sum,
+                  nrow(obama.l) / obama.ideo.sum,
+                  nrow(obama.m) / obama.ideo.sum,
+                  nrow(obama.c) / obama.ideo.sum,
+                  nrow(obama.vc) / obama.ideo.sum,
+                  nrow(obama.ns) / obama.ideo.sum)
+
+#Clinton Supporters
+clinton.vl <- clinton.voters[clinton.voters$V243 == "Very liberal", ]
+clinton.l <- clinton.voters[clinton.voters$V243 == "Liberal", ]
+clinton.m <- clinton.voters[clinton.voters$V243 == "Moderate", ]
+clinton.c <- clinton.voters[clinton.voters$V243 == "Conservative", ]
+clinton.vc <- clinton.voters[clinton.voters$V243 == "Very conservative", ]
+clinton.ns <- clinton.voters[clinton.voters$V243 == "Not sure", ]
+
+clinton.ideo.sum <- sum(nrow(clinton.vl), nrow(clinton.l), nrow(clinton.m), nrow(clinton.c), nrow(clinton.vc), nrow(clinton.ns))
+
+clinton.ideo <- c(nrow(clinton.vl) / clinton.ideo.sum,
+                  nrow(clinton.l) / clinton.ideo.sum,
+                  nrow(clinton.m) / clinton.ideo.sum,
+                  nrow(clinton.c) / clinton.ideo.sum,
+                  nrow(clinton.vc) / clinton.ideo.sum,
+                  nrow(clinton.ns) / clinton.ideo.sum)
+
+
+primary.ideo.matrix.08 <- matrix(c(obama.ideo, clinton.ideo) * 100, ncol=2, byrow=F, dimnames=list(c("Very Liberal", "Liberal", "Moderate", "Conservative", "Very Conservative", "Not Sure"), c("Obama", "Clinton")))
+```
+
+Plot political ideology according to the candidate voted for in the primary.
+
+```{r}
+key <- c("Very Liberal", "Liberal", "Moderate", "Conservative", "Very Conservative", "Not Sure")
+barplot((primary.ideo.matrix.08), beside=TRUE, col=c(rev(brewer.pal(5, "RdBu")), "gray"), legend=key, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=3, inset=c(0, -0.3)))
+mtext(side=1, line=1.7, at=c(4.1, 11.1), text=c(paste("n=", obama.ideo.sum), paste("n=", clinton.ideo.sum)), cex=0.75) #sample sizes
+
+write.table(primary.ideo.matrix.08, "PoliticalIdeologyPrimaries08_Table.txt")
+```
+
+Now to analyze who Clinton primary supporters voted for in the general election
+
+```{r eval = F, echo = F}
+levels(clintonvoters$CC410)
+
+#Clinton to others
+
+clintontomccain <- clintonvoters[clintonvoters$CC410 == "John McCain (Republican)", ]
+clintontomccain <- clintontomccain[!is.na(clintontomccain$CC410), ]
+
+clintontoobama <- clintonvoters[clintonvoters$CC410 == "Barack Obama (Democrat)", ]
+clintontoobama <- clintontoobama[!is.na(clintontoobama$CC410), ]
+
+clintontoother <- clintonvoters[clintonvoters$CC410 == "Cynthia McKinney (Green)" | clintonvoters$CC410 == "Robert Barr (Libertarian)" | clintonvoters$CC410 == "Ralph Nader (Independent)" | clintonvoters$CC410 == "Other candidate or party" | clintonvoters$CC410 == "Ron Paul", ]
+clintontoother <- clintontoother[!is.na(clintontoother$CC410), ]
+
+clintontonone <- clintonvoters[clintonvoters$CC410 == "I did not vote in this race" | clintonvoters$CC410 == "I did not vote in the election", ]
+clintontonone <- clintontonone[!is.na(clintontonone$CC410), ]
+
+clintonto.sum <- sum(nrow(clintontomccain), nrow(clintontoobama), nrow(clintontoother))
+
+nrow(clintontomccain)/clintonto.sum
+nrow(clintontoobama)/clintonto.sum
+nrow(clintontoother)/clintonto.sum
+
+
+#add in those from above who voted for Clinton in the primary but didn't vote in the general election
+
+nrow(clintonnonvoters) / (nrow(clintonnonvoters) + nrow(clintonvoters))
+
+#combine into matrix
+
+clintonto <- c(nrow(clintontomccain)/(nrow(clintonnonvoters) + 
+                                         nrow(clintonvoters)),
+                      nrow(clintontoobama)/(nrow(clintonnonvoters) + 
+                                              nrow(clintonvoters)),
+                      nrow(clintontoother)/(nrow(clintonnonvoters) + 
+                                              nrow(clintonvoters)), 
+                      nrow(clintonnonvoters) / (nrow(clintonnonvoters) + 
+                                                  nrow(clintonvoters)))
+
+clintonto.matrix <- matrix(clintonto * 100, ncol=4, byrow=T, dimnames=list(c("Percentage"), c("McCain", "Obama", "Other", "Didn't Vote")))
+```
+
+Plot who Clinton primary voters then voted for in the general election.
+
+```{r}
+key <- dimnames(clintonto.matrix)[[2]]
+barplot((clintonto.matrix), beside=TRUE, space=c(0.1, 0.1, 0.1, 0.1), col=c(brewer.pal(5, "RdBu")[1], brewer.pal(5, "RdBu")[5], brewer.pal(5, "RdBu")[3], "gray"), legend=F, ylab="Percent", args.legend=list(x="top", cex=.5, bty="n", ncol=4, inset=c(0, -0.3)))
+mtext(side=1, line=1.7, at=c(0.63, 1.72, 2.82, 3.93), text=c(paste("n=", nrow(clintontomccain)), paste("n=", nrow(clintontoobama)), paste("n=", nrow(clintontoother)), paste("n=", nrow(clintonnonvoters))), cex=0.75) #sample sizes
+
+write.table(clintonto.matrix, "ClintonToCandidates08_Table.txt")
+```
+
+And that's the end!
